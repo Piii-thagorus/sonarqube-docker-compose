@@ -3,13 +3,18 @@ version: "3"
 services:
 
     sonarqube:
+
+        container_name: sonarqube
         image: sonarqube
-        build: .
+
+        depends_on:
+          - postgres
+
         expose:
           - 9000
 
         ports:
-          - "127.0.0.1:9000:9000"
+          - "9000:9000"
 
         networks:
           - sonarnet
@@ -18,18 +23,24 @@ services:
           - sonar.jdbc.url=jdbc:postgresql://postgres:5432/sonar
           - sonar.jdbc.username=sonar
           - sonar.jdbc.password=sonar
+          - SONAR_ES_BOOTSTRAP_CHECKS_DISABLE=true
+
 
         volumes:
           - sonarqube_conf:/opt/sonarqube/conf
           - sonarqube_data:/opt/sonarqube/data
           - sonarqube_extensions:/opt/sonarqube/extensions
           - sonarqube_bundled-plugins:/opt/sonarqube/lib/bundled-plugins
+          - sonarqube_logs:/opt/sonarqube/logs
+
 
     postgres:
-        image: postgres
-        build: .
+        container_name: sonar_db
+        image: postgres:latest
+          
         networks:
           - sonarnet
+
         ports:
           - "5432:5432"
 
@@ -41,6 +52,23 @@ services:
           - postgresql:/var/lib/postgresql
           - postgresql_data:/var/lib/postgresql/data
 
+
+    sonarscanner:
+       image: newtmitch/sonar-scanner
+
+       networks:
+             - sonarnet
+
+       depends_on:
+             - sonarqube
+
+       volumes:
+              - .:/usr/src
+       links:
+              - sonarqube:sonarqube
+
+       command:  ["sh", "-c", "sleep 60 && sonar-scanner && -Dsonar.projectBaseDir=/usr/src"]
+
 networks:
   sonarnet:
 
@@ -51,3 +79,4 @@ volumes:
   sonarqube_bundled-plugins:
   postgresql:
   postgresql_data:
+  sonarqube_logs:
